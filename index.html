@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Racknotes — Figuring out emerging tech, self-hosting, and AI</title>
+<meta name="description" content="A curiosity-driven lab log for people who want to understand, build, and run tomorrow's technology from their own corner of the internet — without the hype.">
+<meta property="og:title" content="Racknotes">
+<meta property="og:description" content="Figuring out emerging tech, self-hosting, and AI — one experiment at a time.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#141414">
+
+<!--
+  Favicon: rack-unit mark — chassis + three bays + green status LED.
+  Designed to survive at 16px (the outer rect and LED read even at tab size).
+-->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141414'/%3E%3Crect x='3.5' y='6' width='25' height='20' rx='3' fill='none' stroke='%23D98E3A' stroke-width='2.2'/%3E%3Cpath d='M3.5 12.7H28.5M3.5 19.3H28.5' stroke='%23D98E3A' stroke-width='1.4' stroke-opacity='.55'/%3E%3Cpath d='M8 9.3h8M8 16h8M8 22.7h8' stroke='%23EDEDED' stroke-width='1.6' stroke-linecap='round' stroke-opacity='.8'/%3E%3Ccircle cx='23' cy='16' r='1.7' fill='%237FB069'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     RACKNOTES — design tokens
+     ============================================================ */
+  :root {
+    --ink:        #141414;
+    --ink-soft:   #1a1a1a;
+    --cream:      #f4efe6;
+    --paper:      #fbf8f2;
+    --text:       #ededed;
+    --text-dim:   #a8a29a;
+    --graphite:   #222222;
+    --graphite-dim: #6b6660;
+    --amber:      #d98e3a;
+    --green:      #7fb069;
+    --teal:       #4f8a8b;
+    --line:       rgba(244, 239, 230, 0.14);
+    --line-dark:  rgba(34, 34, 34, 0.14);
+
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans:  "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --wrap: 1120px;
+    --pad: clamp(20px, 5vw, 48px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img, svg { display: block; max-width: 100%; }
+
+  a { color: inherit; }
+
+  .wrap {
+    width: 100%;
+    max-width: var(--wrap);
+    margin-inline: auto;
+    padding-inline: var(--pad);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip {
+    position: absolute;
+    left: 12px; top: -60px;
+    z-index: 99;
+    background: var(--amber);
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 13px;
+    text-decoration: none;
+    transition: top .18s ease;
+  }
+  .skip:focus { top: 12px; }
+
+  :focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 3px;
+  }
+
+  /* ---------- shared type ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 18px;
+  }
+  .eyebrow .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 9px;
+    vertical-align: 1px;
+    animation: breathe 3.2s ease-in-out infinite;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h1 { font-size: clamp(2.1rem, 5.4vw, 3.85rem); }
+  h2 { font-size: clamp(1.7rem, 3.6vw, 2.6rem); }
+  h3 { font-size: 1.22rem; line-height: 1.25; letter-spacing: -0.01em; }
+
+  .lede {
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    color: var(--text-dim);
+    max-width: 54ch;
+    margin: 22px 0 0;
+  }
+
+  /* ============================================================
+     HEADER
+     ------------------------------------------------------------
+     Lockup notes:
+     - .brand-mark-box is a fixed 26px box, so the glyph can never
+       resize the row when the wordmark length changes.
+     - .brand-word has nowrap + fixed tracking, so "RACKNOTES"
+       reads as intentional at 9 characters.
+     - Under 380px the wordmark hides and the mark carries the brand.
+     ============================================================ */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(20, 20, 20, 0.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .site-header .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 68px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    text-decoration: none;
+    color: var(--text);
+    flex: none;
+  }
+  .brand-mark-box {
+    display: block;
+    flex: none;
+    width: 26px;
+    height: 26px;
+  }
+  .brand-mark {
+    stroke: var(--amber);
+    transition: stroke .2s ease;
+  }
+  .brand:hover .brand-mark { stroke: var(--green); }
+
+  .brand-word {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  @media (max-width: 380px) {
+    .brand-word { display: none; }
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+  }
+  .nav a {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color .18s ease;
+  }
+  .nav a:hover { color: var(--text); }
+  .nav a.nav-cta {
+    color: var(--ink);
+    background: var(--amber);
+    padding: 9px 16px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .nav a.nav-cta:hover { background: #e6a158; color: var(--ink); }
+
+  @media (max-width: 620px) {
+    .nav a:not(.nav-cta) { display: none; }
+  }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(56px, 9vw, 104px) 0 clamp(64px, 8vw, 96px);
+    border-bottom: 1px solid var(--line);
+  }
+  /* dot-grid texture, faded at the edges */
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(244, 239, 230, 0.11) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(ellipse 78% 68% at 50% 32%, #000 25%, transparent 78%);
+            mask-image: radial-gradient(ellipse 78% 68% at 50% 32%, #000 25%, transparent 78%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: clamp(36px, 5vw, 64px);
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-figure { order: 2; }
+  }
+
+  .hero h1 .accent {
+    color: var(--amber);
+    font-style: italic;
+  }
+
+  /* ---------- signup form ---------- */
+  .signup {
+    margin-top: 32px;
+    max-width: 480px;
+  }
+  .signup-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .signup input[type="email"] {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    background: rgba(244, 239, 230, 0.045);
+    border: 1px solid rgba(244, 239, 230, 0.22);
+    border-radius: 3px;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .signup input[type="email"]::placeholder { color: #6f6a63; }
+  .signup input[type="email"]:focus {
+    outline: none;
+    border-color: var(--amber);
+    background: rgba(244, 239, 230, 0.075);
+  }
+
+  .btn {
+    flex: 0 0 auto;
+    padding: 14px 22px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--amber);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .18s ease, transform .18s ease;
+  }
+  .btn:hover { background: #e6a158; }
+  .btn:active { transform: translateY(1px); }
+
+  .form-note {
+    margin: 14px 0 0;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    min-height: 1.4em;
+  }
+  .form-note strong { color: var(--green); font-weight: 500; }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin: 30px 0 0;
+    padding: 18px 0 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #7d7770;
+  }
+  .hero-meta li { display: flex; align-items: center; gap: 8px; }
+  .hero-meta li::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--teal);
+  }
+
+  /* ---------- schematic diagram ---------- */
+  .hero-figure {
+    position: relative;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background:
+      radial-gradient(rgba(244, 239, 230, 0.07) 1px, transparent 1px) 0 0 / 18px 18px,
+      rgba(244, 239, 230, 0.022);
+  }
+  .hero-figure figcaption {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: #6f6a63;
+    margin-top: 10px;
+  }
+
+  .node-label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    fill: var(--text);
+  }
+  .flow {
+    stroke-dasharray: 5 7;
+    animation: flow 2.6s linear infinite;
+  }
+  .pulse { animation: breathe 3s ease-in-out infinite; }
+
+  @keyframes flow {
+    to { stroke-dashoffset: -48; }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 1; }
+  }
+
+  /* ============================================================
+     SECTION SHELLS
+     ============================================================ */
+  .section { padding: clamp(60px, 8vw, 100px) 0; }
+
+  .section-light {
+    background: var(--cream);
+    color: var(--graphite);
+    border-top: 1px solid rgba(34, 34, 34, 0.1);
+    border-bottom: 1px solid rgba(34, 34, 34, 0.1);
+  }
+  .section-light .eyebrow { color: #a8621f; }
+  .section-light .lede { color: var(--graphite-dim); }
+
+  .section-head {
+    max-width: 62ch;
+    margin-bottom: clamp(32px, 5vw, 52px);
+  }
+  .section-head h2 { margin-top: 4px; }
+
+  /* ============================================================
+     PILLARS
+     ============================================================ */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
+    gap: 1px;
+    background: var(--line-dark);
+    border: 1px solid var(--line-dark);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .pillar {
+    position: relative;
+    background: var(--paper);
+    padding: 28px 26px 32px;
+    transition: background .2s ease;
+  }
+  .pillar::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--amber);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .28s ease;
+  }
+  .pillar:hover { background: #fffdf8; }
+  .pillar:hover::before { transform: scaleX(1); }
+
+  .pillar-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: #a8621f;
+    display: block;
+    margin-bottom: 14px;
+  }
+  .pillar h3 { color: var(--graphite); margin-bottom: 10px; }
+  .pillar p {
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--graphite-dim);
+  }
+
+  /* ============================================================
+     ROADMAP
+     ============================================================ */
+  .roadmap {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0;
+    max-width: 760px;
+  }
+  .roadmap li {
+    position: relative;
+    padding: 26px 0 26px 34px;
+    border-left: 1px solid var(--line);
+  }
+  .roadmap li:first-child { padding-top: 6px; }
+  .roadmap li:last-child { border-left-color: transparent; }
+  .roadmap li::before {
+    content: "";
+    position: absolute;
+    left: -4.5px;
+    top: 32px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 1px solid var(--text-dim);
+  }
+  .roadmap li:first-child::before { top: 12px; background: var(--green); border-color: var(--green); }
+  .roadmap li.is-now::before {
+    box-shadow: 0 0 0 4px rgba(127, 176, 105, 0.16);
+  }
+
+  .roadmap .when {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .roadmap h3 { margin-bottom: 8px; }
+  .roadmap p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 58ch;
+  }
+  .tag {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    background: rgba(127, 176, 105, 0.14);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    vertical-align: 2px;
+  }
+
+  /* ============================================================
+     HOUSE RULES
+     ============================================================ */
+  .rules {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .rule {
+    padding: 22px 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: rgba(244, 239, 230, 0.026);
+  }
+  .rule .mark {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--teal);
+    display: block;
+    margin-bottom: 12px;
+  }
+  .rule p {
+    margin: 0;
+    font-size: 15px;
+    color: #d5d0c8;
+  }
+  .rule p em {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--text);
+  }
+
+  /* ============================================================
+     CLOSING CTA
+     ============================================================ */
+  .closing {
+    position: relative;
+    padding: clamp(64px, 9vw, 112px) 0;
+    border-top: 1px solid var(--line);
+    background:
+      radial-gradient(ellipse 70% 90% at 50% 0%, rgba(217, 142, 58, 0.09), transparent 70%),
+      var(--ink);
+    text-align: center;
+  }
+  .closing h2 { max-width: 20ch; margin-inline: auto; }
+  .closing .lede { margin-inline: auto; text-align: center; }
+  .closing .signup { margin-inline: auto; }
+  .closing .signup-row { justify-content: center; }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  .site-footer {
+    border-top: 1px solid var(--line);
+    padding: 40px 0 52px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: #7d7770;
+  }
+  .footer-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px 40px;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .footer-links a {
+    text-decoration: none;
+    color: #9a948c;
+    transition: color .18s ease;
+  }
+  .footer-links a:hover { color: var(--amber); }
+  .footer-note {
+    margin: 26px 0 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    max-width: 70ch;
+    line-height: 1.75;
+    color: #6f6a63;
+  }
+  .footer-note a { color: #9a948c; }
+
+  /* ============================================================
+     MOTION PREFERENCES
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ============================== HEADER ============================== -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Racknotes — home">
+      <span class="brand-mark-box" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="26" height="26">
+          <!-- rack chassis -->
+          <rect class="brand-mark" x="3" y="5.5" width="26" height="21" rx="3"
+                fill="none" stroke-width="2.2"/>
+          <!-- bay dividers -->
+          <path d="M3 12.5H29M3 19.5H29" stroke="#D98E3A" stroke-width="1.2"
+                stroke-opacity=".5"/>
+          <!-- bay slots -->
+          <path d="M7.5 9h8M7.5 16h8M7.5 23h8" stroke="#EDEDED" stroke-width="1.7"
+                stroke-linecap="round" stroke-opacity=".8"/>
+          <!-- status LED -->
+          <circle cx="23" cy="16" r="1.7" fill="#7FB069"/>
+        </svg>
+      </span>
+      <span class="brand-word">Racknotes</span>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <a href="#pillars">What's coming</a>
+      <a href="#sequence">Launch sequence</a>
+      <a href="#rules">House rules</a>
+      <a class="nav-cta" href="#join">Join the list</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============================== HERO ============================== -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-grid">
+
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="dot"></span>Rack note 001 — launching soon</p>
+
+          <h1>Figuring out emerging tech, self-hosting, and AI — <span class="accent">one experiment at a time.</span></h1>
+
+          <p class="lede">
+            A curiosity-driven lab log for people who want to understand, build, and run tomorrow's
+            technology from their own corner of the internet — without the hype. I test things in my
+            own rack, document what breaks, and tell you what I'd do differently.
+          </p>
+
+          <!--
+            ============================================================
+            SIGNUP FORM — wire this up before you launch.
+            Easiest options: Buttondown, MailerLite, ConvertKit, or a
+            Netlify/Formspree endpoint. Replace the action/method below
+            and delete the data-demo attribute + the demo JS at the
+            bottom of this file.
+            ============================================================
+          -->
+          <form class="signup" id="join" data-signup data-demo
+                action="#" method="post" novalidate>
+            <div class="signup-row">
+              <label class="sr-only" for="email-hero">Email address</label>
+              <input id="email-hero" name="email" type="email"
+                     placeholder="you@example.com" autocomplete="email" required>
+              <button class="btn" type="submit">Join the launch list</button>
+            </div>
+            <p class="form-note" role="status" aria-live="polite">
+              No spam, no launch-day countdowns. I'll email when there's something
+              actually worth showing you.
+            </p>
+          </form>
+
+          <ul class="hero-meta">
+            <li>5 content pillars</li>
+            <li>Weekly experiments</li>
+            <li>1 very used mini-PC</li>
+          </ul>
+        </div>
+
+        <!-- Schematic: the open loop -->
+        <figure class="hero-figure" style="margin:0">
+          <svg viewBox="0 0 460 232" role="img"
+               aria-label="A schematic diagram of an open loop: idea, build, measure, and a feedback path labelled adjust.">
+            <defs>
+              <marker id="arrow-amber" viewBox="0 0 10 10" refX="8.5" refY="5"
+                      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#D98E3A"/>
+              </marker>
+              <marker id="arrow-green" viewBox="0 0 10 10" refX="8.5" refY="5"
+                      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#7FB069"/>
+              </marker>
+            </defs>
+
+            <!-- nodes -->
+            <g fill="none" stroke="#EDEDED" stroke-opacity="0.5" stroke-width="1.4">
+              <rect x="14"  y="30" width="118" height="52" rx="6"/>
+              <rect x="171" y="30" width="118" height="52" rx="6"/>
+              <rect x="328" y="30" width="118" height="52" rx="6"/>
+            </g>
+
+            <g class="node-label" text-anchor="middle">
+              <text x="73"  y="61">IDEA</text>
+              <text x="230" y="61">BUILD</text>
+              <text x="387" y="61">MEASURE</text>
+            </g>
+
+            <!-- forward arrows -->
+            <g fill="none" stroke="#D98E3A" stroke-width="1.4" marker-end="url(#arrow-amber)">
+              <path d="M136 56 H166"/>
+              <path d="M293 56 H323"/>
+            </g>
+
+            <!-- feedback loop -->
+            <path class="flow" d="M387 82 V150 H73 V82"
+                  fill="none" stroke="#7FB069" stroke-width="1.4"
+                  marker-end="url(#arrow-green)"/>
+
+            <circle class="pulse" cx="230" cy="150" r="3.2" fill="#7FB069"/>
+
+            <text x="230" y="178" text-anchor="middle"
+                  font-family="JetBrains Mono, monospace" font-size="11"
+                  letter-spacing="2.2" fill="#7FB069">ADJUST</text>
+            <text x="230" y="202" text-anchor="middle"
+                  font-family="Inter, sans-serif" font-size="12.5"
+                  fill="#8a847c">the loop stays open</text>
+          </svg>
+          <figcaption>Fig. 01 — How every rack note gets written</figcaption>
+        </figure>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== PILLARS ============================== -->
+  <section class="section section-light" id="pillars">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What's coming</p>
+        <h2>Five kinds of experiments.</h2>
+        <p class="lede">
+          Every post starts with something I actually wanted to know. If I haven't
+          run it, broken it, or fixed it myself, it doesn't go up.
+        </p>
+      </div>
+
+      <div class="pillars">
+        <article class="pillar">
+          <span class="pillar-num">01</span>
+          <h3>The Lab Log</h3>
+          <p>Builds, upgrades, and failures from my own homelab. Including the parts I got wrong and had to redo.</p>
+        </article>
+
+        <article class="pillar">
+          <span class="pillar-num">02</span>
+          <h3>Emerging Tech, Tested</h3>
+          <p>Thirty-day experiments, not press releases. What a new tool actually does once the demo shine wears off.</p>
+        </article>
+
+        <article class="pillar">
+          <span class="pillar-num">03</span>
+          <h3>The Sovereign Stack</h3>
+          <p>Practical guides to owning your own data — and honest notes on what you should probably leave in the cloud.</p>
+        </article>
+
+        <article class="pillar">
+          <span class="pillar-num">04</span>
+          <h3>AI, Actually</h3>
+          <p>Local models, real workflows, and failure modes. Does it survive contact with a normal working day?</p>
+        </article>
+
+        <article class="pillar">
+          <span class="pillar-num">05</span>
+          <h3>Field Notes</h3>
+          <p>Short dispatches: a tiny script, a tool I stumbled on, a thing I was confidently wrong about.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== LAUNCH SEQUENCE ============================== -->
+  <section class="section" id="sequence">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Launch sequence</p>
+        <h2>Small, honest, and in public.</h2>
+      </div>
+
+      <ol class="roadmap">
+        <li class="is-now">
+          <span class="when">Right now <span class="tag">in progress</span></span>
+          <h3>Writing the first six experiments</h3>
+          <p>Build logs and cost breakdowns from my current rack, plus the first two 30-day tests. Slow on purpose — the first posts set the standard.</p>
+        </li>
+        <li>
+          <span class="when">Next</span>
+          <h3>First build logs and video</h3>
+          <p>The blog goes live with the opening experiments, and the first walkthrough video follows. Same work, two formats.</p>
+        </li>
+        <li>
+          <span class="when">Then</span>
+          <h3>The Sovereign Stack starter kit</h3>
+          <p>A small, genuinely useful checklist of the exact self-hosting stack I run — the setup order, the hardware, and the parts I'd skip.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============================== HOUSE RULES ============================== -->
+  <section class="section" id="rules" style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">House rules</p>
+        <h2>What you can expect here.</h2>
+      </div>
+
+      <ul class="rules">
+        <li class="rule">
+          <span class="mark">RULE 01</span>
+          <p>I test before I recommend. Nothing gets a link until I've actually lived with it.</p>
+        </li>
+        <li class="rule">
+          <span class="mark">RULE 02</span>
+          <p>Every build post ends with <em>what I'd do differently.</em> That's the useful part.</p>
+        </li>
+        <li class="rule">
+          <span class="mark">RULE 03</span>
+          <p>Affiliate links are labeled, always — and I'll tell you when a commission isn't worth your money.</p>
+        </li>
+        <li class="rule">
+          <span class="mark">RULE 04</span>
+          <p><em>"I'm not sure yet"</em> is a valid sentence here. So is "this broke and I don't know why."</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================== CLOSING CTA ============================== -->
+  <section class="closing">
+    <div class="wrap">
+      <p class="eyebrow"><span class="dot"></span>Experiment one is in the works</p>
+      <h2>Be there when the first note goes up.</h2>
+      <p class="lede">
+        One email when the site opens. Then a short biweekly note — what I built,
+        what broke, and one thing worth your time.
+      </p>
+
+      <form class="signup" data-signup data-demo action="#" method="post" novalidate>
+        <div class="signup-row">
+          <label class="sr-only" for="email-footer">Email address</label>
+          <input id="email-footer" name="email" type="email"
+                 placeholder="you@example.com" autocomplete="email" required>
+          <button class="btn" type="submit">Join the launch list</button>
+        </div>
+        <p class="form-note" role="status" aria-live="polite">
+          Unsubscribe any time, no hard feelings.
+        </p>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================== FOOTER ============================== -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <p style="margin:0">© <span id="year">2026</span> Racknotes</p>
+      <ul class="footer-links">
+        <li><a href="#" rel="me">YouTube</a></li>
+        <li><a href="#" rel="me">Mastodon</a></li>
+        <li><a href="#" rel="me">Reddit</a></li>
+        <li><a href="mailto:hello@racknotes.dev">Email</a></li>
+      </ul>
+    </div>
+
+    <p class="footer-note">
+      Disclosure: some links on this site will be affiliate links. If you buy through
+      them, Racknotes may earn a small commission at no extra cost to you — and every
+      one of those links is labeled where it appears. Recommendations are written the
+      same way whether a link pays or not.
+    </p>
+  </div>
+</footer>
+
+<script>
+  /* ============================================================
+     Footer year
+     ============================================================ */
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  /* ============================================================
+     Signup handling — DEMO MODE
+     ------------------------------------------------------------
+     This script only runs while the form has the [data-demo]
+     attribute. To go live:
+       1. Point the form's action/method at your provider
+          (Buttondown, MailerLite, ConvertKit, Formspree, etc.)
+       2. Delete the data-demo attribute from both forms.
+       3. Delete this block.
+     ============================================================ */
+  document.querySelectorAll('form[data-signup][data-demo]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      var input = form.querySelector('input[type="email"]');
+      var note  = form.querySelector('.form-note');
+
+      if (!input.checkValidity()) {
+        note.textContent = 'That email looks incomplete — mind checking it?';
+        input.focus();
+        return;
+      }
+
+      note.innerHTML = '<strong>Demo mode.</strong> This form isn\'t connected to a provider yet. ' +
+                       'Email hello@racknotes.dev to be added by hand.';
+      input.value = '';
+    });
+  });
+</script>
+
+</body>
+</html>
